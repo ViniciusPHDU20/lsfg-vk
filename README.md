@@ -1,10 +1,16 @@
-# lsfg-vk
+# lsfg-vk (Soberano Edition)
+
+> [!NOTE]
+> **Fork Oficial & Créditos:** Este repositório é um fork oficial de [PancakeTAS/lsfg-vk](https://github.com/PancakeTAS/lsfg-vk).  
+> Todo o mérito da engenharia reversa do algoritmo do Lossless Scaling, implementação da camada Vulkan e bindings de baixo nível pertence integralmente a **PancakeTAS**, **0xNULLderef**, **Caliel666**, **Samueru-sama** e à comunidade de contribuidores originais.
+>
+> **O que adicionamos nesta edição:**
+> - **Soberano LSFG Manager (`lsfg-vk-ui-tauri`):** Interface gráfica moderna em **Rust + Tauri 2.0** com tema Cyberpunk / Purple Abyss, monitoramento de GPU em tempo real, auto-scanner de jogos Steam em 1 clique e painel de benchmark integrado.
+> - **Otimização Nativa Zen 5 (AVX-512):** Pipelines e scripts calibrados para processadores de alta performance (ex: AMD Ryzen 9 9950X / Zen 5) e placas NVIDIA dedicadas.
+
 **Lossless Scaling** is a Windows-exclusive program featuring various algorithms for scaling and interpolating programs.
 
 **lsfg-vk** is a Vulkan layer that hooks into Vulkan applications and generates additional frames using Lossless Scaling's frame generation algorithm.
-
->[!CAUTION]
-> You are reading the README for the upcoming version 2.0 of lsfg-vk. For the stable version 1.x, [please read here](https://github.com/PancakeTAS/lsfg-vk/tree/ff1a0f72a7d6d08b84d58b7b4dc5f05c9f904f98)
 
 ## Installation
 >[!TIP]

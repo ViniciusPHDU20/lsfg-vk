@@ -1,0 +1,33 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Soberano-LSFG-Manager",
+  "version": "1.0.0",
+  "identifier": "com.soberano.lsfg.manager",
+  "build": {
+    "frontendDist": "../src",
+    "devUrl": null,
+    "beforeDevCommand": "",
+    "beforeBuildCommand": ""
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "SOBERANO LSFG MANAGER - FRAME GENERATION SUITE",
+        "width": 1280,
+        "height": 840,
+        "minWidth": 980,
+        "minHeight": 660,
+        "resizable": true,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": null
+    },
+    "withGlobalTauri": true
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all"
+  }
+}

@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SOBERANO LSFG MANAGER</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-container">
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" fill="rgba(168, 85, 247, 0.4)"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>SOBERANO</h1>
+          <span class="subtitle">LSFG MANAGER v2.0</span>
+        </div>
+      </div>
+
+      <nav class="nav-menu">
+        <button class="nav-btn active" data-tab="profiles">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="6" width="20" height="12" rx="2"/>
+            <path d="M6 12h4m-2-2v4m7-2h.01m3 0h.01"/>
+          </svg>
+          <span>Perfis & Jogos</span>
+          <span class="badge" id="profile-count-badge">0</span>
+        </button>
+
+        <button class="nav-btn" data-tab="steam">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2a10 10 0 0 0-10 10c0 4.42 2.87 8.17 6.84 9.5l2.42-3.48a3.5 3.5 0 0 1-.26-1.32l-3.32-1.92a2.5 2.5 0 0 1 0-1.56l3.32-1.92a3.5 3.5 0 1 1 5.96 2.64l3.19 1.84A10 10 0 1 0 12 2z"/>
+          </svg>
+          <span>Biblioteca Steam</span>
+        </button>
+
+        <button class="nav-btn" data-tab="benchmark">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 12A10 10 0 1 1 12 2a10 10 0 0 1 10 10z"/>
+            <path d="M12 12l4-4"/>
+          </svg>
+          <span>Benchmark Real</span>
+        </button>
+
+        <button class="nav-btn" data-tab="settings">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+          <span>Configurações</span>
+        </button>
+      </nav>
+
+      <!-- GPU STATUS CARD -->
+      <div class="gpu-widget">
+        <div class="gpu-header">
+          <span class="gpu-title" id="gpu-name">NVIDIA RTX 3060 Ti</span>
+          <span class="status-indicator active" title="Online"></span>
+        </div>
+        <div class="gpu-stats">
+          <div class="stat-item">
+            <span class="label">TEMP</span>
+            <span class="val" id="gpu-temp">-- °C</span>
+          </div>
+          <div class="stat-item">
+            <span class="label">VRAM</span>
+            <span class="val" id="gpu-vram">-- / 8192 MB</span>
+          </div>
+        </div>
+        <div class="layer-status">
+          <span class="layer-dot active" id="layer-dot"></span>
+          <span id="layer-status-text">Vulkan Layer Ativa</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+      <!-- ABA 1: PERFIS DE JOGOS -->
+      <section class="tab-pane active" id="tab-profiles">
+        <header class="content-header">
+          <div>
+            <h2>Perfis de Geração de Quadros</h2>
+            <p>Gerencie multiplicadores e modo de desempenho para cada jogo.</p>
+          </div>
+          <div class="header-actions">
+            <input type="text" id="search-profiles" placeholder="Buscar perfil..." class="input-search">
+            <button class="btn btn-primary" id="btn-new-profile">
+              <span>+ Novo Perfil</span>
+            </button>
+          </div>
+        </header>
+
+        <div class="profiles-grid" id="profiles-container">
+          <!-- Perfis renderizados via JS -->
+        </div>
+      </section>
+
+      <!-- ABA 2: BIBLIOTECA STEAM -->
+      <section class="tab-pane" id="tab-steam">
+        <header class="content-header">
+          <div>
+            <h2>Biblioteca Steam Integrada</h2>
+            <p>Detecta jogos instalados na Steam e permite ativar o LSFG em 1 clique.</p>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-secondary" id="btn-scan-steam">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M23 4v6h-6M1 20v-6h6"/>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+              </svg>
+              <span>Escanear Bibliotecas</span>
+            </button>
+          </div>
+        </header>
+
+        <div class="steam-grid" id="steam-container">
+          <!-- Jogos Steam renderizados via JS -->
+        </div>
+      </section>
+
+      <!-- ABA 3: BENCHMARK REAL -->
+      <section class="tab-pane" id="tab-benchmark">
+        <header class="content-header">
+          <div>
+            <h2>Benchmark Sintético Real</h2>
+            <p>Mede a taxa de geração de quadros e latência diretamente na RTX 3060 Ti.</p>
+          </div>
+        </header>
+
+        <div class="benchmark-card">
+          <div class="bench-controls">
+            <div class="control-group">
+              <label>Multiplicador</label>
+              <select id="bench-multiplier" class="select-field">
+                <option value="2">2x (1 Frame Gerado)</option>
+                <option value="3">3x (2 Frames Gerados)</option>
+                <option value="4">4x (3 Frames Gerados)</option>
+              </select>
+            </div>
+
+            <div class="control-group">
+              <label>Resolução Alvo</label>
+              <select id="bench-res" class="select-field">
+                <option value="1920x1080">1920 x 1080 (FHD Nativo Acer)</option>
+                <option value="2560x1440">2560 x 1440 (QHD 2K)</option>
+              </select>
+            </div>
+
+            <div class="control-group checkbox-group">
+              <label class="toggle-switch">
+                <input type="checkbox" id="bench-perf-mode">
+                <span class="slider"></span>
+              </label>
+              <label for="bench-perf-mode" class="toggle-label">Modo Performance</label>
+            </div>
+
+            <button class="btn btn-primary btn-bench" id="btn-run-bench">
+              <span>Iniciar Benchmark (2s)</span>
+            </button>
+          </div>
+
+          <div class="bench-results" id="bench-results" style="display: none;">
+            <div class="result-box hero">
+              <span class="result-label">FPS TOTAL PROJETADO</span>
+              <span class="result-value" id="bench-fps-total">0.00</span>
+              <span class="result-sub">Quadros/segundo no monitor</span>
+            </div>
+            <div class="result-grid">
+              <div class="result-box">
+                <span class="result-label">FPS GERADOS (IA)</span>
+                <span class="result-value" id="bench-fps-gen">0.00</span>
+              </div>
+              <div class="result-box">
+                <span class="result-label">ITERAÇÕES</span>
+                <span class="result-value" id="bench-iter">0</span>
+              </div>
+              <div class="result-box">
+                <span class="result-label">QUADROS TOTAIS</span>
+                <span class="result-value" id="bench-frames">0</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ABA 4: CONFIGURAÇÕES GLOBAIS -->
+      <section class="tab-pane" id="tab-settings">
+        <header class="content-header">
+          <div>
+            <h2>Configurações Globais do LSFG</h2>
+            <p>Parâmetros globais e caminhos de bibliotecas do sistema.</p>
+          </div>
+          <button class="btn btn-primary" id="btn-save-global">
+            <span>Salvar Alterações</span>
+          </button>
+        </header>
+
+        <div class="settings-form">
+          <div class="form-group">
+            <label>Caminho da DLL Lossless Scaling (Steam)</label>
+            <div class="input-with-status">
+              <input type="text" id="cfg-dll-path" class="input-field" placeholder="/caminho/para/Lossless.dll">
+              <span class="dll-badge ok" id="dll-status-badge">Detectada ✓</span>
+            </div>
+            <small>Arquivo oficial que contém os shaders de interpolação e fluxo óptico.</small>
+          </div>
+
+          <div class="form-group">
+            <div class="toggle-container">
+              <div>
+                <label class="setting-title">Aceleração FP16 (Half-Precision)</label>
+                <p class="setting-desc">Utiliza precisão média de ponto flutuante para maximizar o throughput na GPU.</p>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="cfg-allow-fp16" checked>
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>GPU de Renderização Padrão</label>
+            <input type="text" id="cfg-default-gpu" class="input-field" value="NVIDIA GeForce RTX 3060 Ti" readonly>
+            <small>O LSFG é forçado atomicamente na RTX 3060 Ti para evitar os gargalos da iGPU.</small>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- MODAL EDITAR/CRIAR PERFIL -->
+  <div class="modal-overlay" id="profile-modal" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modal-title">Editar Perfil</h3>
+        <button class="btn-close" id="btn-close-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Nome do Perfil / Jogo</label>
+          <input type="text" id="modal-profile-name" class="input-field" placeholder="Ex: Cyberpunk 2077">
+        </div>
+
+        <div class="form-group">
+          <label>Executáveis Alvo (Separados por vírgula ou linha)</label>
+          <textarea id="modal-profile-exes" class="input-textarea" rows="3" placeholder="Ex: Cyberpunk2077.exe, game.exe"></textarea>
+          <small>O LSFG será ativado quando qualquer um desses processos abrir.</small>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group flex-1">
+            <label>Multiplicador de Quadros</label>
+            <div class="pill-selector" id="modal-multiplier-selector">
+              <button type="button" class="pill-btn active" data-val="2">2x</button>
+              <button type="button" class="pill-btn" data-val="3">3x</button>
+              <button type="button" class="pill-btn" data-val="4">4x</button>
+            </div>
+          </div>
+
+          <div class="form-group flex-1">
+            <label>Flow Scale: <span id="flow-scale-val">100%</span></label>
+            <input type="range" id="modal-flow-scale" min="0.5" max="1.0" step="0.05" value="1.0" class="range-slider">
+            <small>Resolução da malha de movimento (1.0 = Máx Qualidade)</small>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <div class="toggle-container">
+            <div>
+              <label class="setting-title">Modo Performance</label>
+              <p class="setting-desc">Modelo de rede mais leve para máximo ganho de FPS.</p>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="modal-performance-mode">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="btn-cancel-modal">Cancelar</button>
+        <button class="btn btn-primary" id="btn-save-profile-modal">Salvar Perfil</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION CONTAINER -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

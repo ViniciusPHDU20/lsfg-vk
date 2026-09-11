@@ -9,3 +9,8 @@
 /.clangd
 /.cache
 /.ccls
+/build*
+thirdparty/
+**/target/
+**/bin/
+*.log

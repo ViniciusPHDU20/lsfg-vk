@@ -1,0 +1,1 @@
+{"default":{"identifier":"default","description":"Permissões padrão soberanas","local":true,"windows":["main"],"permissions":["core:default","shell:default","dialog:default","fs:default"]}}
