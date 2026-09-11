@@ -791,16 +791,26 @@ function renderSteamGames(filterText = "") {
         ${exesTags || '<span class="exe-tag">Executável padrão</span>'}
       </div>
 
-      <div class="card-actions">
-        <button class="btn btn-secondary btn-configure-steam" style="flex: 1;">
+      <div class="card-actions" style="display: flex; gap: 8px;">
+        <button class="btn btn-primary btn-play-steam" style="flex: 1;" title="Disparar jogo pela Steam com LSFG">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="5 3 19 12 5 21 5 3"/>
+          </svg>
+          <span>Jogar</span>
+        </button>
+        <button class="btn btn-secondary btn-configure-steam" title="Ajustar configurações de LSFG">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="12" y1="5" x2="12" y2="19"/>
             <line x1="5" y1="12" x2="19" y2="12"/>
           </svg>
-          <span>${isConfigured ? 'Ajustar Configuração' : 'Configurar LSFG'}</span>
+          <span>${isConfigured ? 'Ajustar' : 'Configurar'}</span>
         </button>
       </div>
     `;
+
+    card.querySelector(".btn-play-steam").addEventListener("click", () => {
+      launchGame(g.appid);
+    });
 
     card.querySelector(".btn-configure-steam").addEventListener("click", () => {
       openModalForSteamGame(g);

@@ -607,13 +607,47 @@ async fn run_benchmark(
 }
 
 #[tauri::command]
-fn launch_game(command: String) -> Result<String, String> {
-    Command::new("sh")
-        .args(["-c", &format!("lsfg-run {} &", command)])
-        .spawn()
-        .map_err(|e| format!("Falha ao executar comando: {}", e))?;
+fn launch_game(target: String) -> Result<String, String> {
+    let target = target.trim();
+    if target.is_empty() {
+        return Err("Nenhum executável ou ID de jogo informado".to_string());
+    }
 
-    Ok(format!("Jogo disparado com LSFG: {}", command))
+    // 1. Se for um AppID numérico direto da Steam (ex: "4001890")
+    if target.chars().all(|c| c.is_ascii_digit()) {
+        Command::new("xdg-open")
+            .arg(format!("steam://rungameid/{}", target))
+            .spawn()
+            .map_err(|e| format!("Falha ao invocar Steam: {}", e))?;
+
+        return Ok(format!("Disparando jogo Steam (AppID: {}) com LSFG ativo", target));
+    }
+
+    // 2. Se for um executável, verificar se pertence a algum jogo Steam instalado
+    let steam_games = scan_steam_games();
+    if let Some(game) = steam_games.iter().find(|g| {
+        g.executables
+            .iter()
+            .any(|e| e.eq_ignore_ascii_case(target))
+    }) {
+        Command::new("xdg-open")
+            .arg(format!("steam://rungameid/{}", game.appid))
+            .spawn()
+            .map_err(|e| format!("Falha ao invocar Steam: {}", e))?;
+
+        return Ok(format!(
+            "Disparando '{}' via Steam (AppID: {}) com LSFG ativo",
+            game.name, game.appid
+        ));
+    }
+
+    // 3. Fallback: Se for comando/binário nativo do Linux (ex: vkcube)
+    Command::new("sh")
+        .args(["-c", &format!("{} &", target)])
+        .spawn()
+        .map_err(|e| format!("Falha ao executar processo nativo: {}", e))?;
+
+    Ok(format!("Executando processo nativo: {}", target))
 }
 
 pub fn run() {
