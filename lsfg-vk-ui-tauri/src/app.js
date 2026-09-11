@@ -127,12 +127,25 @@ function renderProfiles() {
     card.className = "profile-card";
 
     const exesTags = (p.active_in || []).map(exe => `<span class="exe-tag">${escapeHtml(exe)}</span>`).join("");
+    const isUnlocked = (p.pacing || "unlocked") === "unlocked";
+    const isMailbox = p.pacing === "mailbox";
+    const limit = p.real_fps_limit || 0;
+
+    let pacingPill = '<span class="pill pill-perf">⚡ UNLOCKED</span>';
+    if (isMailbox) pacingPill = '<span class="pill pill-sync">🚀 MAILBOX</span>';
+    else if (p.pacing === "none" || p.pacing === "fifo") pacingPill = '<span class="pill pill-sync">🔒 1/2 V-SYNC</span>';
+
+    const limitPill = limit === 0 
+      ? '<span class="pill pill-max">MAX FPS</span>'
+      : `<span class="pill pill-fps">${limit} FPS CAP</span>`;
 
     card.innerHTML = `
       <div class="card-top">
         <h3 class="card-title">${escapeHtml(p.name)}</h3>
         <div class="card-pills">
           <span class="pill pill-mult">${p.multiplier || 2}x FG</span>
+          ${pacingPill}
+          ${limitPill}
           ${p.performance_mode ? '<span class="pill pill-perf">PERF</span>' : ''}
         </div>
       </div>
@@ -143,7 +156,7 @@ function renderProfiles() {
 
       <div class="card-controls">
         <span style="font-size: 0.8rem; color: var(--text-dim); font-family: var(--font-mono);">
-          Flow: ${Math.round((p.flow_scale || 1.0) * 100)}%
+          Flow: ${Math.round((p.flow_scale || 1.0) * 100)}% | Pacing: ${p.pacing || 'unlocked'}
         </span>
         <div class="card-actions">
           <button class="icon-btn edit-btn" title="Editar Perfil">
@@ -190,16 +203,51 @@ function setupModal() {
     document.getElementById("modal-flow-scale").value = "1.0";
     document.getElementById("flow-scale-val").textContent = "100%";
     document.getElementById("modal-performance-mode").checked = false;
+    document.getElementById("modal-real-fps-limit").value = "0";
+    document.getElementById("real-fps-limit-val").textContent = "MAX (Ilimitado)";
+    document.getElementById("real-fps-limit-val").style.color = "var(--accent-cyan)";
     setModalMultiplier(2);
+    setModalPacing("unlocked");
+    updateFpsPreview();
     modal.style.display = "flex";
   });
 
-  // Pill Selector
+  // Multiplier Pill Selector
   document.querySelectorAll("#modal-multiplier-selector .pill-btn").forEach(btn => {
     btn.addEventListener("click", () => {
       document.querySelectorAll("#modal-multiplier-selector .pill-btn").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
+      updateFpsPreview();
     });
+  });
+
+  // Pacing Selector
+  document.querySelectorAll("#modal-pacing-selector .pill-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#modal-pacing-selector .pill-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      const pacing = btn.getAttribute("data-pacing");
+      const helper = document.getElementById("pacing-helper-text");
+      if (pacing === "unlocked") helper.textContent = "GPU no talo: sem trava artificial de 82 FPS.";
+      else if (pacing === "none") helper.textContent = "1/2 V-Sync: trava na metade dos Hz do monitor (82 FPS em 165Hz).";
+      else helper.textContent = "Fast-Sync: renderização rápida sem tearing no display.";
+      updateFpsPreview();
+    });
+  });
+
+  // Real FPS Limit input
+  const limitInput = document.getElementById("modal-real-fps-limit");
+  const limitVal = document.getElementById("real-fps-limit-val");
+  limitInput?.addEventListener("input", () => {
+    const val = parseInt(limitInput.value || "0", 10);
+    if (isNaN(val) || val <= 0) {
+      limitVal.textContent = "MAX (Ilimitado)";
+      limitVal.style.color = "var(--accent-cyan)";
+    } else {
+      limitVal.textContent = `${val} FPS`;
+      limitVal.style.color = "var(--accent-purple)";
+    }
+    updateFpsPreview();
   });
 
   // Flow Slider
@@ -227,6 +275,10 @@ function setupModal() {
     const multiplier = parseInt(activeMultBtn?.getAttribute("data-val") || "2", 10);
     const flow_scale = parseFloat(document.getElementById("modal-flow-scale").value || "1.0");
     const performance_mode = document.getElementById("modal-performance-mode").checked;
+    const activePacingBtn = document.querySelector("#modal-pacing-selector .pill-btn.active");
+    const pacing = activePacingBtn?.getAttribute("data-pacing") || "unlocked";
+    const rawLimit = parseInt(document.getElementById("modal-real-fps-limit").value || "0", 10);
+    const real_fps_limit = isNaN(rawLimit) || rawLimit < 0 ? 0 : rawLimit;
 
     const newProfile = {
       name,
@@ -235,7 +287,8 @@ function setupModal() {
       multiplier,
       flow_scale,
       performance_mode,
-      pacing: "none"
+      pacing,
+      real_fps_limit
     };
 
     if (editingProfileIndex !== null) {
@@ -258,6 +311,41 @@ function setModalMultiplier(val) {
   });
 }
 
+function setModalPacing(pacing) {
+  document.querySelectorAll("#modal-pacing-selector .pill-btn").forEach(btn => {
+    if (btn.getAttribute("data-pacing") === pacing) btn.classList.add("active");
+    else btn.classList.remove("active");
+  });
+  const helper = document.getElementById("pacing-helper-text");
+  if (helper) {
+    if (pacing === "unlocked") helper.textContent = "GPU no talo: sem trava artificial de 82 FPS.";
+    else if (pacing === "none") helper.textContent = "1/2 V-Sync: trava na metade dos Hz do monitor (82 FPS em 165Hz).";
+    else helper.textContent = "Fast-Sync: renderização rápida sem tearing no display.";
+  }
+}
+
+function updateFpsPreview() {
+  const preview = document.getElementById("fps-preview-calc");
+  if (!preview) return;
+
+  const activeMultBtn = document.querySelector("#modal-multiplier-selector .pill-btn.active");
+  const mult = parseInt(activeMultBtn?.getAttribute("data-val") || "2", 10);
+  const activePacingBtn = document.querySelector("#modal-pacing-selector .pill-btn.active");
+  const pacing = activePacingBtn?.getAttribute("data-pacing") || "unlocked";
+  const limit = parseInt(document.getElementById("modal-real-fps-limit")?.value || "0", 10);
+
+  if (pacing === "none") {
+    preview.textContent = `V-Sync 1/2 (82 FPS) × ${mult}x = 165 FPS (Trava Monitor)`;
+    preview.style.color = "#eab308";
+  } else if (isNaN(limit) || limit <= 0) {
+    preview.textContent = `FPS Real (MÁXIMO GPU) × ${mult}x = FLUIDEZ MÁXIMA`;
+    preview.style.color = "var(--accent-cyan)";
+  } else {
+    preview.textContent = `FPS Real (${limit} FPS) × ${mult}x = ${limit * mult} FPS TOTAL`;
+    preview.style.color = "var(--accent-purple)";
+  }
+}
+
 function openEditModal(idx) {
   editingProfileIndex = idx;
   const p = currentConfig.profile[idx];
@@ -270,7 +358,17 @@ function openEditModal(idx) {
   document.getElementById("flow-scale-val").textContent = `${Math.round((p.flow_scale || 1.0) * 100)}%`;
   document.getElementById("modal-performance-mode").checked = !!p.performance_mode;
   setModalMultiplier(p.multiplier || 2);
+  setModalPacing(p.pacing || "unlocked");
 
+  const limit = p.real_fps_limit || 0;
+  document.getElementById("modal-real-fps-limit").value = limit;
+  const limitVal = document.getElementById("real-fps-limit-val");
+  if (limitVal) {
+    limitVal.textContent = limit > 0 ? `${limit} FPS` : "MAX (Ilimitado)";
+    limitVal.style.color = limit > 0 ? "var(--accent-purple)" : "var(--accent-cyan)";
+  }
+
+  updateFpsPreview();
   document.getElementById("profile-modal").style.display = "flex";
 }
 

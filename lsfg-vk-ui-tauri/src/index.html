@@ -273,6 +273,31 @@
           </div>
         </div>
 
+        <div class="form-row">
+          <div class="form-group flex-1">
+            <label>Modo de Sincronização / Pacing</label>
+            <div class="pill-selector" id="modal-pacing-selector">
+              <button type="button" class="pill-btn active" data-pacing="unlocked">⚡ Desbloqueado (Max FPS)</button>
+              <button type="button" class="pill-btn" data-pacing="none">🔒 V-Sync (82 FPS)</button>
+              <button type="button" class="pill-btn" data-pacing="mailbox">🚀 Fast-Sync (Mailbox)</button>
+            </div>
+            <small id="pacing-helper-text">GPU no talo: sem trava artificial de 82 FPS.</small>
+          </div>
+
+          <div class="form-group flex-1">
+            <label>Limite FPS Real (Engine): <span id="real-fps-limit-val" style="color: var(--accent-cyan); font-weight: 800;">MAX (Ilimitado)</span></label>
+            <input type="number" id="modal-real-fps-limit" min="0" max="360" step="1" value="0" class="input-field" placeholder="0 = Sem Limite / Máximo">
+            <small>0 = Ilimitado (100% GPU) ou defina ex: 60, 82, 120, 165.</small>
+          </div>
+        </div>
+
+        <div class="form-group" style="background: rgba(168, 85, 247, 0.08); border: 1px solid rgba(168, 85, 247, 0.25); border-radius: 8px; padding: 10px 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 0.85rem; color: var(--text-muted);">Projeção no Monitor:</span>
+            <span id="fps-preview-calc" style="font-family: var(--font-mono); font-weight: 800; color: var(--accent-cyan);">FPS Real (MAX) × 2x = FLUIDEZ MÁXIMA</span>
+          </div>
+        </div>
+
         <div class="form-group">
           <div class="toggle-container">
             <div>

@@ -86,6 +86,8 @@ namespace lsfgvk::ui {
             VALIDATE_AND_GET_PROFILE(0)
             switch (conf.pacing) {
                 case ls::Pacing::None: return 0;
+                case ls::Pacing::Unlocked: return 1;
+                case ls::Pacing::Mailbox: return 2;
             }
             throw std::runtime_error("Unknown pacing type in backend");
         }
@@ -150,10 +152,15 @@ namespace lsfgvk::ui {
         }
         void pacingModeUpdated(int pacing_mode) {
             VALIDATE_AND_GET_PROFILE()
-            if (pacing_mode == 0)
             switch (pacing_mode) {
                 case 0:
                     conf.pacing = ls::Pacing::None;
+                    break;
+                case 1:
+                    conf.pacing = ls::Pacing::Unlocked;
+                    break;
+                case 2:
+                    conf.pacing = ls::Pacing::Mailbox;
                     break;
                 default:
                     throw std::runtime_error("Unknown pacing mode in backend");

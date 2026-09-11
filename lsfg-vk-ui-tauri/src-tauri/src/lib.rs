@@ -45,6 +45,8 @@ pub struct ProfileConfig {
     pub performance_mode: bool,
     #[serde(default = "default_pacing")]
     pub pacing: String,
+    #[serde(default)]
+    pub real_fps_limit: u32,
 }
 
 fn default_multiplier() -> u32 {

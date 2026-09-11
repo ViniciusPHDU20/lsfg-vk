@@ -102,8 +102,12 @@ namespace {
     }
     /// parse a pacing method from string
     Pacing parcingFromString(const std::string& str) {
-        if (str == "none")
+        if (str == "none" || str == "fifo")
             return Pacing::None;
+        if (str == "unlocked" || str == "immediate")
+            return Pacing::Unlocked;
+        if (str == "mailbox")
+            return Pacing::Mailbox;
         throw ls::error("unknown pacing method: " + str);
     }
     /// parse the global configuration
@@ -127,7 +131,8 @@ namespace {
             .multiplier = tbl["multiplier"].value_or(2U),
             .flow_scale = tbl["flow_scale"].value_or(1.0F),
             .performance_mode = tbl["performance_mode"].value_or(false),
-            .pacing = parcingFromString(tbl["pacing"].value_or<std::string>("none"))
+            .pacing = parcingFromString(tbl["pacing"].value_or<std::string>("none")),
+            .real_fps_limit = static_cast<uint32_t>(tbl["real_fps_limit"].value_or(0LL))
         };
 
         if (conf.multiplier <= 1)
@@ -246,7 +251,15 @@ void ConfigFile::write(const std::filesystem::path& path) const {
             case Pacing::None:
                 profile.insert("pacing", "none");
                 break;
+            case Pacing::Unlocked:
+                profile.insert("pacing", "unlocked");
+                break;
+            case Pacing::Mailbox:
+                profile.insert("pacing", "mailbox");
+                break;
         }
+        if (conf.real_fps_limit > 0)
+            profile.insert("real_fps_limit", static_cast<int64_t>(conf.real_fps_limit));
 
         profiles.push_back(profile);
     }

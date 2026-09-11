@@ -22,7 +22,11 @@ namespace ls {
     /// pacing methods
     enum class Pacing : uint8_t {
         /// do not perform any pacing (vsync+novrr)
-        None
+        None,
+        /// uncapped / immediate presentation (maximum GPU performance)
+        Unlocked,
+        /// mailbox presentation (fast-sync triple buffer)
+        Mailbox
     };
 
     /// game profile configuration
@@ -41,6 +45,8 @@ namespace ls {
         bool performance_mode{false};
         /// pacing method
         Pacing pacing{Pacing::None};
+        /// real fps limiter (0 = unlimited / max)
+        uint32_t real_fps_limit{0};
     };
 
     /// parsed configuration file

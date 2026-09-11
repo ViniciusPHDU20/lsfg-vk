@@ -11,11 +11,13 @@
 #include "lsfg-vk-common/vulkan/vulkan.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <exception>
 #include <functional>
 #include <optional>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -82,6 +84,22 @@ void layer::context_ModifySwapchainCreateInfo(const ls::GameConf& profile, uint3
                 createInfo.minImageCount = maxImages;
 
             createInfo.presentMode = VK_PRESENT_MODE_FIFO_KHR;
+            break;
+
+        case ls::Pacing::Unlocked:
+            createInfo.minImageCount += profile.multiplier;
+            if (maxImages && createInfo.minImageCount > maxImages)
+                createInfo.minImageCount = maxImages;
+
+            createInfo.presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+            break;
+
+        case ls::Pacing::Mailbox:
+            createInfo.minImageCount += profile.multiplier;
+            if (maxImages && createInfo.minImageCount > maxImages)
+                createInfo.minImageCount = maxImages;
+
+            createInfo.presentMode = VK_PRESENT_MODE_MAILBOX_KHR;
             break;
     }
 }
@@ -166,7 +184,7 @@ VkResult Swapchain::present(const vk::Vulkan& vk,
         throw ls::error("failed to schedule frames", e);
     }
 
-    // update present mode when not using pacing
+    // update present mode
     if (this->profile.pacing == ls::Pacing::None) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunknown-warning-option"
@@ -182,6 +200,49 @@ VkResult Swapchain::present(const vk::Vulkan& vk,
             info = reinterpret_cast<VkSwapchainPresentModeInfoEXT*>(const_cast<void*>(info->pNext));
         }
 #pragma clang diagnostic pop
+    } else if (this->profile.pacing == ls::Pacing::Unlocked) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunknown-warning-option"
+#pragma clang diagnostic ignored "-Wunsafe-buffer-usage"
+        auto* info = reinterpret_cast<VkSwapchainPresentModeInfoEXT*>(next_chain);
+        while (info) {
+            if (info->sType == VK_STRUCTURE_TYPE_SWAPCHAIN_PRESENT_MODE_INFO_EXT) {
+                for (size_t i = 0; i < info->swapchainCount; i++)
+                    const_cast<VkPresentModeKHR*>(info->pPresentModes)[i] =
+                        VK_PRESENT_MODE_IMMEDIATE_KHR;
+            }
+
+            info = reinterpret_cast<VkSwapchainPresentModeInfoEXT*>(const_cast<void*>(info->pNext));
+        }
+#pragma clang diagnostic pop
+    } else if (this->profile.pacing == ls::Pacing::Mailbox) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunknown-warning-option"
+#pragma clang diagnostic ignored "-Wunsafe-buffer-usage"
+        auto* info = reinterpret_cast<VkSwapchainPresentModeInfoEXT*>(next_chain);
+        while (info) {
+            if (info->sType == VK_STRUCTURE_TYPE_SWAPCHAIN_PRESENT_MODE_INFO_EXT) {
+                for (size_t i = 0; i < info->swapchainCount; i++)
+                    const_cast<VkPresentModeKHR*>(info->pPresentModes)[i] =
+                        VK_PRESENT_MODE_MAILBOX_KHR;
+            }
+
+            info = reinterpret_cast<VkSwapchainPresentModeInfoEXT*>(const_cast<void*>(info->pNext));
+        }
+#pragma clang diagnostic pop
+    }
+
+    // real frame limiter (if configured > 0)
+    if (this->profile.real_fps_limit > 0) {
+        using clock = std::chrono::steady_clock;
+        static thread_local clock::time_point last_present = clock::now();
+        const auto target_interval = std::chrono::nanoseconds(1'000'000'000ULL / this->profile.real_fps_limit);
+        const auto now = clock::now();
+        const auto elapsed = now - last_present;
+        if (elapsed < target_interval) {
+            std::this_thread::sleep_for(target_interval - elapsed);
+        }
+        last_present = clock::now();
     }
 
     // wait for completion of previous frame
