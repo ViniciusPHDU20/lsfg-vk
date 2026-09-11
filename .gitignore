@@ -9,8 +9,14 @@
 /.clangd
 /.cache
 /.ccls
-/build*
+/build/
+/build_*/
 thirdparty/
 **/target/
 **/bin/
 *.log
+dist/*.so
+dist/lsfg-vk-cli
+dist/soberano-lsfg-manager
+dist/VkLayer_LSFGVK_frame_generation.json
+dist/install.sh

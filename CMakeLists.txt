@@ -11,6 +11,10 @@ option(LSFGVK_INSTALL_XDG_FILES  "Install the application icon and desktop files
 set(LSFGVK_LAYER_LIBRARY_PATH liblsfg-vk-layer.so CACHE STRING "Change where Vulkan searches for the layer library")
 option(LSFGVK_LAYER_MANGOHUD     "Enable MangoHud support in the Vulkan layer"        ON)
 option(LSFGVK_TESTING_RENDERDOC  "Enable RenderDoc integration for testing purposes" OFF)
+
+# === ARCHITECTURE & COMPILER OPTIMIZATIONS ===
+option(LSFGVK_NATIVE_ARCH        "Optimize for host CPU architecture (-march=native -O3)" ON)
+option(LSFGVK_UNIVERSAL_BUILD    "Build portable binary for modern x86-64 CPUs (-march=x86-64-v3 -O3)" OFF)
 # === READ HERE FOR BUILD OPTIONS ===
 
 set(CMAKE_CXX_STANDARD 20)
@@ -18,6 +22,19 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_SKIP_RPATH ON)
+
+if(NOT MSVC)
+    if(LSFGVK_UNIVERSAL_BUILD)
+        message(STATUS "LSFG-VK: Compiling UNIVERSAL portable binary (-march=x86-64-v3 -O3)")
+        add_compile_options(-O3 -march=x86-64-v3 -mtune=generic)
+    elseif(LSFGVK_NATIVE_ARCH)
+        message(STATUS "LSFG-VK: Compiling NATIVE host-optimized binary (-march=native -O3)")
+        add_compile_options(-O3 -march=native -mtune=native)
+    else()
+        message(STATUS "LSFG-VK: Compiling standard binary (-O3)")
+        add_compile_options(-O3)
+    endif()
+endif()
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(CMAKE_EXPORT_COMPILE_COMMANDS ON)

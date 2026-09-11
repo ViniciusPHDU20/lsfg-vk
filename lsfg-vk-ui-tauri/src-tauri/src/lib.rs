@@ -2,7 +2,6 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use tauri::Manager;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ConfigFile {
@@ -24,6 +23,8 @@ pub struct GlobalConfig {
     pub dll: Option<String>,
     #[serde(default = "default_true")]
     pub allow_fp16: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub default_gpu: Option<String>,
 }
 
 fn default_true() -> bool {
@@ -76,9 +77,23 @@ where
     }
 }
 
+fn get_home_dir() -> PathBuf {
+    std::env::var("HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| PathBuf::from("."))
+}
+
 fn get_config_path() -> PathBuf {
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/home/viniciusphdu".to_string());
-    PathBuf::from(home).join(".config/lsfg-vk/conf.toml")
+    get_home_dir().join(".config/lsfg-vk/conf.toml")
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct GpuDevice {
+    pub id: String,
+    pub name: String,
+    pub device_type: String,
+    pub driver_info: String,
+    pub is_discrete: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -92,6 +107,7 @@ pub struct SystemStatus {
     pub vulkan_layer_installed: bool,
     pub lossless_dll_found: bool,
     pub lossless_dll_path: String,
+    pub available_gpus: Vec<GpuDevice>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -114,15 +130,195 @@ pub struct BenchmarkResult {
     pub fps_total: f32,
 }
 
+fn find_steam_libraries() -> Vec<PathBuf> {
+    let home = get_home_dir();
+    let mut libraries = Vec::new();
+
+    let default_roots = [
+        home.join(".local/share/Steam"),
+        home.join(".steam/steam"),
+        home.join(".steam/root"),
+        home.join(".var/app/com.valvesoftware.Steam/data/Steam"),
+    ];
+
+    for root in &default_roots {
+        let steamapps = root.join("steamapps");
+        if steamapps.exists() && !libraries.contains(&steamapps) {
+            libraries.push(steamapps.clone());
+        }
+
+        let vdf_path = steamapps.join("libraryfolders.vdf");
+        if let Ok(content) = fs::read_to_string(&vdf_path) {
+            for line in content.lines() {
+                let trimmed = line.trim();
+                if trimmed.starts_with("\"path\"") {
+                    let parts: Vec<&str> = trimmed.split('"').collect();
+                    if parts.len() >= 4 {
+                        let extra_steamapps = PathBuf::from(parts[3]).join("steamapps");
+                        if extra_steamapps.exists() && !libraries.contains(&extra_steamapps) {
+                            libraries.push(extra_steamapps);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    libraries
+}
+
+fn find_default_lossless_dll() -> Option<PathBuf> {
+    let home = get_home_dir();
+    let fragments = [
+        ".local/share/Steam/steamapps/common/Lossless Scaling/Lossless.dll",
+        ".steam/steam/steamapps/common/Lossless Scaling/Lossless.dll",
+        ".steam/debian-installation/steamapps/common/Lossless Scaling/Lossless.dll",
+        ".var/app/com.valvesoftware.Steam/.local/share/Steam/steamapps/common/Lossless Scaling/Lossless.dll",
+        "snap/steam/common/.local/share/Steam/steamapps/common/Lossless Scaling/Lossless.dll",
+    ];
+
+    for frag in &fragments {
+        let candidate = home.join(frag);
+        if candidate.exists() {
+            return Some(candidate);
+        }
+    }
+
+    for lib in find_steam_libraries() {
+        let candidate = lib.join("common/Lossless Scaling/Lossless.dll");
+        if candidate.exists() {
+            return Some(candidate);
+        }
+    }
+
+    let local = PathBuf::from("Lossless.dll");
+    if local.exists() {
+        return Some(local);
+    }
+
+    None
+}
+
+#[tauri::command]
+fn detect_system_gpus() -> Vec<GpuDevice> {
+    let mut gpus = Vec::new();
+
+    if let Ok(output) = Command::new("vulkaninfo").arg("--summary").output() {
+        if output.status.success() {
+            let out_str = String::from_utf8_lossy(&output.stdout);
+            let mut current_id = String::new();
+            let mut current_name = String::new();
+            let mut current_type = "Unknown".to_string();
+            let mut current_driver = String::new();
+            let mut is_discrete = false;
+            let mut in_devices = false;
+
+            for line in out_str.lines() {
+                let trimmed = line.trim();
+                if trimmed == "Devices:" {
+                    in_devices = true;
+                    continue;
+                }
+                if !in_devices {
+                    continue;
+                }
+
+                if trimmed.starts_with("GPU") && trimmed.contains(':') {
+                    if !current_name.is_empty() {
+                        gpus.push(GpuDevice {
+                            id: current_id,
+                            name: current_name,
+                            device_type: current_type,
+                            driver_info: current_driver,
+                            is_discrete,
+                        });
+                    }
+                    current_id = trimmed.trim_end_matches(':').to_string();
+                    current_name = String::new();
+                    current_type = "Unknown".to_string();
+                    current_driver = String::new();
+                    is_discrete = false;
+                } else if trimmed.starts_with("deviceName") {
+                    if let Some(val) = trimmed.split('=').nth(1) {
+                        current_name = val.trim().to_string();
+                    }
+                } else if trimmed.starts_with("deviceType") {
+                    if let Some(val) = trimmed.split('=').nth(1) {
+                        let t = val.trim();
+                        if t.contains("INTEGRATED") {
+                            current_type = "Integrated".to_string();
+                            is_discrete = false;
+                        } else if t.contains("DISCRETE") {
+                            current_type = "Discrete".to_string();
+                            is_discrete = true;
+                        } else if t.contains("CPU") {
+                            current_type = "CPU".to_string();
+                            is_discrete = false;
+                        } else if t.contains("VIRTUAL") {
+                            current_type = "Virtual".to_string();
+                            is_discrete = false;
+                        } else {
+                            current_type = t.to_string();
+                        }
+                    }
+                } else if trimmed.starts_with("driverInfo") {
+                    if let Some(val) = trimmed.split('=').nth(1) {
+                        current_driver = val.trim().to_string();
+                    }
+                }
+            }
+
+            if !current_name.is_empty() {
+                gpus.push(GpuDevice {
+                    id: current_id,
+                    name: current_name,
+                    device_type: current_type,
+                    driver_info: current_driver,
+                    is_discrete,
+                });
+            }
+        }
+    }
+
+    if gpus.is_empty() {
+        if let Ok(output) = Command::new("nvidia-smi")
+            .args(["--query-gpu=name,driver_version", "--format=csv,noheader"])
+            .output()
+        {
+            if output.status.success() {
+                let out = String::from_utf8_lossy(&output.stdout);
+                for (idx, line) in out.lines().enumerate() {
+                    let parts: Vec<&str> = line.split(',').map(|s| s.trim()).collect();
+                    if !parts.is_empty() && !parts[0].is_empty() {
+                        gpus.push(GpuDevice {
+                            id: format!("GPU{}", idx),
+                            name: parts[0].to_string(),
+                            device_type: "Discrete".to_string(),
+                            driver_info: parts.get(1).unwrap_or(&"").to_string(),
+                            is_discrete: true,
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    gpus
+}
+
 #[tauri::command]
 fn get_config() -> Result<ConfigFile, String> {
     let path = get_config_path();
     if !path.exists() {
+        let detected_dll = find_default_lossless_dll()
+            .map(|p| p.to_string_lossy().to_string());
+
         return Ok(ConfigFile {
             version: 2,
             global: GlobalConfig {
-                dll: Some("/home/viniciusphdu/.local/share/Steam/steamapps/common/Lossless Scaling/Lossless.dll".to_string()),
+                dll: detected_dll,
                 allow_fp16: true,
+                default_gpu: None,
             },
             profile: Vec::new(),
         });
@@ -153,12 +349,15 @@ fn save_config(config: ConfigFile) -> Result<String, String> {
 
 #[tauri::command]
 fn get_system_status() -> SystemStatus {
-    let mut gpu_name = "NVIDIA GeForce RTX 3060 Ti".to_string();
+    let available_gpus = detect_system_gpus();
+    let primary_gpu = available_gpus.iter().find(|g| g.is_discrete).or_else(|| available_gpus.first());
+
+    let mut gpu_name = primary_gpu.map(|g| g.name.clone()).unwrap_or_else(|| "GPU não detectada".to_string());
     let mut gpu_temp = "N/A".to_string();
-    let mut gpu_memory_total = "8192 MB".to_string();
+    let mut gpu_memory_total = "N/A".to_string();
     let mut gpu_memory_used = "0 MB".to_string();
     let mut gpu_utilization = "0%".to_string();
-    let mut driver_version = "610.57.04".to_string();
+    let mut driver_version = primary_gpu.map(|g| g.driver_info.clone()).unwrap_or_default();
 
     if let Ok(output) = Command::new("nvidia-smi")
         .args([
@@ -184,15 +383,11 @@ fn get_system_status() -> SystemStatus {
     let vulkan_layer_installed = Path::new("/usr/lib/liblsfg-vk-layer.so").exists()
         && Path::new("/usr/share/vulkan/implicit_layer.d/VkLayer_LSFGVK_frame_generation.json").exists();
 
-    let dll_candidate = PathBuf::from(
-        "/home/viniciusphdu/.local/share/Steam/steamapps/common/Lossless Scaling/Lossless.dll",
-    );
-    let lossless_dll_found = dll_candidate.exists();
-    let lossless_dll_path = if lossless_dll_found {
-        dll_candidate.to_string_lossy().to_string()
-    } else {
-        "Não encontrada".to_string()
-    };
+    let dll_candidate = find_default_lossless_dll();
+    let lossless_dll_found = dll_candidate.is_some();
+    let lossless_dll_path = dll_candidate
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_else(|| "Não encontrada".to_string());
 
     SystemStatus {
         gpu_name,
@@ -204,17 +399,14 @@ fn get_system_status() -> SystemStatus {
         vulkan_layer_installed,
         lossless_dll_found,
         lossless_dll_path,
+        available_gpus,
     }
 }
 
 #[tauri::command]
 fn scan_steam_games() -> Vec<SteamGame> {
     let mut games = Vec::new();
-    let library_folders = [
-        PathBuf::from("/home/viniciusphdu/.local/share/Steam/steamapps"),
-        PathBuf::from("/mnt/GAMES/SteamLibrary/steamapps"),
-        PathBuf::from("/mnt/GAMES/steamapps"),
-    ];
+    let library_folders = find_steam_libraries();
 
     let current_conf = get_config().ok();
     let configured_exes: Vec<String> = current_conf
@@ -242,12 +434,17 @@ fn scan_steam_games() -> Vec<SteamGame> {
                             let name = extract_vdf_field(&content, "name").unwrap_or_default();
                             let installdir = extract_vdf_field(&content, "installdir").unwrap_or_default();
 
-                            if !name.is_empty() && !installdir.is_empty() && name != "Lossless Scaling" && name != "Proton Hotfix" && name != "Proton Experimental" {
+                            if !name.is_empty()
+                                && !installdir.is_empty()
+                                && name != "Lossless Scaling"
+                                && name != "Proton Hotfix"
+                                && name != "Proton Experimental"
+                            {
                                 let common_dir = steamapps.join("common").join(&installdir);
                                 if common_dir.exists() {
                                     let mut exes = Vec::new();
                                     find_executables(&common_dir, &mut exes, 3);
-                                    
+
                                     let is_configured = exes.iter().any(|e| {
                                         configured_exes.contains(&e.to_lowercase())
                                     });
@@ -324,11 +521,16 @@ async fn run_benchmark(
     width: u32,
     height: u32,
 ) -> BenchmarkResult {
-    let dll_path = "/home/viniciusphdu/.local/share/Steam/steamapps/common/Lossless Scaling/Lossless.dll";
+    let dll_candidate = find_default_lossless_dll();
+    let dll_path = match dll_candidate {
+        Some(p) => p.to_string_lossy().to_string(),
+        None => "Lossless.dll".to_string(),
+    };
+
     let mut args = vec![
         "benchmark".to_string(),
         "-d".to_string(),
-        dll_path.to_string(),
+        dll_path,
         "-w".to_string(),
         width.to_string(),
         "-h".to_string(),
@@ -423,6 +625,7 @@ pub fn run() {
             get_config,
             save_config,
             get_system_status,
+            detect_system_gpus,
             scan_steam_games,
             run_benchmark,
             launch_game
